@@ -73,20 +73,34 @@ class DeviceActionAgent(
 ) : AdkAgent {
     override val name: String = "DeviceActionAgent"
     override val role: String = "Device Action Specialist"
-    override val description: String = "Performs on-device system actions like setting alarms or launching apps."
+    override val description: String = "Performs on-device system actions like setting alarms, launching apps, web search, or deep app search actions."
 
     override suspend fun canHandle(query: String): Boolean {
-        return DeviceActionHelper.isAppLaunchIntent(query) || DeviceActionHelper.isAlarmIntent(query)
+        return DeviceActionHelper.isAppLaunchIntent(query) ||
+            DeviceActionHelper.isAlarmIntent(query) ||
+            DeviceActionHelper.isWebSearchIntent(query) ||
+            DeviceActionHelper.isComplexActionIntent(query)
     }
 
     override suspend fun execute(query: String, context: AgentWorkflowContext): String {
-        return if (DeviceActionHelper.isAlarmIntent(query)) {
-            val result = mcpServer.callTool("setDeviceAlarm", mapOf("message" to query))
-            result.primaryText
-        } else {
-            val appTarget = DeviceActionHelper.extractAppName(query)
-            val result = mcpServer.callTool("openDeviceApp", mapOf("target" to appTarget))
-            result.primaryText
+        return when {
+            DeviceActionHelper.isAlarmIntent(query) -> {
+                val result = mcpServer.callTool("setDeviceAlarm", mapOf("message" to query))
+                result.primaryText
+            }
+            DeviceActionHelper.isWebSearchIntent(query) -> {
+                val result = mcpServer.callTool("webSearch", mapOf("query" to query))
+                result.primaryText
+            }
+            DeviceActionHelper.isComplexActionIntent(query) -> {
+                val result = mcpServer.callTool("performAppSearchAction", mapOf("query" to query))
+                result.primaryText
+            }
+            else -> {
+                val appTarget = DeviceActionHelper.extractAppName(query)
+                val result = mcpServer.callTool("openDeviceApp", mapOf("target" to appTarget))
+                result.primaryText
+            }
         }
     }
 }

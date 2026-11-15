@@ -99,8 +99,37 @@ object DeviceActionHelper {
             .trim()
     }
 
+    fun isWebSearchIntent(query: String): Boolean {
+        val lower = sanitize(query).lowercase().trim()
+        val triggers = listOf(
+            "google search", "web search", "search on google",
+            "search google", "search the web", "open google and search",
+            "search on web", "google for",
+        )
+        if (triggers.any { lower.startsWith(it) }) return true
+        if (lower.endsWith(" on google") || lower.endsWith(" on web")) return true
+        if (lower.contains("search ") && (lower.contains("google") || lower.contains("web browser"))) return true
+        return false
+    }
+
+    fun isComplexActionIntent(query: String): Boolean {
+        val lower = sanitize(query).lowercase().trim()
+        if (isWebSearchIntent(lower)) return true
+
+        val apps = listOf("youtube", "yt", "instagram", "insta", "maps", "google maps", "spotify", "whatsapp")
+        val actions = listOf("search", "play", "find", "follow", "listen", "chalao", "dhundo", "baja")
+
+        val hasApp = apps.any { lower.contains(it) }
+        val hasAction = actions.any { lower.contains(it) }
+
+        if (hasApp && hasAction) return true
+        if (lower.contains(" and search ") || lower.contains(" and play ") || lower.contains(" and follow ")) return true
+        return false
+    }
+
     fun isAppLaunchIntent(query: String): Boolean {
         val lower = sanitize(query).lowercase().trim()
+        if (isComplexActionIntent(lower) || isWebSearchIntent(lower)) return true
         val openTriggers = listOf("open ", "launch ", "start ", "run ", "kholo ", "chalao ")
         if (openTriggers.any { lower.startsWith(it) }) return true
         if (KNOWN_APP_PACKAGES.keys.any { lower == "open $it" || lower == it }) return true
@@ -139,7 +168,203 @@ object DeviceActionHelper {
         return text
     }
 
+    fun executeWebSearch(context: Context, query: String): Pair<Boolean, String> {
+        val lower = sanitize(query).lowercase().trim()
+        var searchTerm = lower
+        val removePrefixes = listOf(
+            "open google and search for ", "open google and search ",
+            "search on google for ", "search on google ", "search google for ",
+            "search google ", "google search for ", "google search ",
+            "web search for ", "web search ", "search for ", "search ",
+        )
+        for (prefix in removePrefixes) {
+            if (searchTerm.startsWith(prefix)) {
+                searchTerm = searchTerm.substring(prefix.length).trim()
+                break
+            }
+        }
+        searchTerm = searchTerm.replace(" on google", "")
+            .replace(" on web", "")
+            .trim()
+            .ifBlank { query.trim() }
+
+        return try {
+            val intent = Intent(Intent.ACTION_WEB_SEARCH).apply {
+                putExtra(android.app.SearchManager.QUERY, searchTerm)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            Pair(true, "Searching Google for '$searchTerm' 🌐🔍")
+        } catch (_: Exception) {
+            try {
+                val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=${Uri.encode(searchTerm)}")).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(webIntent)
+                Pair(true, "Searching Google for '$searchTerm' 🌐🔍")
+            } catch (_: Exception) {
+                Pair(false, "Could not perform web search.")
+            }
+        }
+    }
+
+    fun executeComplexAction(context: Context, query: String): Pair<Boolean, String> {
+        val raw = sanitize(query)
+        val lower = raw.lowercase().trim()
+
+        // 1. Web Search
+        if (isWebSearchIntent(lower)) {
+            return executeWebSearch(context, query)
+        }
+
+        // 2. YouTube Search or Play
+        if (lower.contains("youtube") || lower.contains("yt")) {
+            val isPlay = lower.contains("play") || lower.contains("chalao") || lower.contains("baja")
+            var target = lower
+            val youtubeCleanups = listOf(
+                "open youtube and play ", "open youtube and search ",
+                "open youtube to play ", "open youtube to search ",
+                "open youtube and ", "open youtube ", "play ", "search for ",
+                "search ", "chalao ", "baja ", "on youtube", "on yt", "in youtube",
+            )
+            for (clean in youtubeCleanups) {
+                target = target.replace(clean, "")
+            }
+            target = target.trim().ifBlank { "music" }
+
+            return try {
+                val searchUrl = "https://www.youtube.com/results?search_query=${Uri.encode(target)}"
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(searchUrl)).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                val pm = context.packageManager
+                if (pm.getLaunchIntentForPackage("com.google.android.youtube") != null) {
+                    intent.setPackage("com.google.android.youtube")
+                }
+                context.startActivity(intent)
+                val actionLabel = if (isPlay) "to play '$target' 🎬▶️" else "& searching for '$target' 🎬🔍"
+                Pair(true, "Opening YouTube $actionLabel")
+            } catch (_: Exception) {
+                Pair(false, "Could not open YouTube for '$target'.")
+            }
+        }
+
+        // 3. Instagram Profile / Search / Follow
+        if (lower.contains("instagram") || lower.contains("insta")) {
+            val isFollow = lower.contains("follow")
+            var username = lower
+            val instaCleanups = listOf(
+                "open instagram and search ", "open instagram and follow ",
+                "open instagram and find ", "open instagram and ",
+                "open instagram ", "search witness.31 and follow that account",
+                "search for ", "search ", "follow that account", "and follow that account",
+                "and follow ", "follow ", "account ", "profile ", "on instagram",
+                "on insta", "in instagram", "account", "profile",
+            )
+            for (clean in instaCleanups) {
+                username = username.replace(clean, "")
+            }
+            username = username.replace("@", "").trim()
+            if (username.contains(" ")) {
+                username = username.split("\\s+".toRegex()).firstOrNull { it.isNotBlank() } ?: username
+            }
+
+            if (username.isBlank()) username = "instagram"
+
+            return try {
+                val appUri = Uri.parse("instagram://user?username=$username")
+                val nativeIntent = Intent(Intent.ACTION_VIEW, appUri).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    setPackage("com.instagram.android")
+                }
+                val pm = context.packageManager
+                if (pm.getLaunchIntentForPackage("com.instagram.android") != null) {
+                    context.startActivity(nativeIntent)
+                } else {
+                    val webUri = Uri.parse("https://www.instagram.com/$username/")
+                    val webIntent = Intent(Intent.ACTION_VIEW, webUri).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(webIntent)
+                }
+                val text = if (isFollow) {
+                    "Opening Instagram profile '@$username' 📸\nTap 'Follow' on their profile to follow them!"
+                } else {
+                    "Opening Instagram profile '@$username' 📸"
+                }
+                Pair(true, text)
+            } catch (_: Exception) {
+                try {
+                    val webUri = Uri.parse("https://www.instagram.com/$username/")
+                    val webIntent = Intent(Intent.ACTION_VIEW, webUri).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(webIntent)
+                    Pair(true, "Opening Instagram profile '@$username' 📸")
+                } catch (_: Exception) {
+                    Pair(false, "Could not open Instagram profile for '@$username'.")
+                }
+            }
+        }
+
+        // 4. Google Maps Search
+        if (lower.contains("maps") || lower.contains("google maps")) {
+            var target = lower
+            val mapCleanups = listOf(
+                "open google maps and search ", "open maps and search ",
+                "open maps and ", "open maps ", "search for ", "search ",
+                "on google maps", "on maps", "maps",
+            )
+            for (clean in mapCleanups) {
+                target = target.replace(clean, "")
+            }
+            target = target.trim().ifBlank { "nearby places" }
+
+            return try {
+                val mapsUri = Uri.parse("https://www.google.com/maps/search/?api=1&query=${Uri.encode(target)}")
+                val intent = Intent(Intent.ACTION_VIEW, mapsUri).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+                Pair(true, "Opening Google Maps & searching for '$target' 🗺️")
+            } catch (_: Exception) {
+                Pair(false, "Could not open Google Maps.")
+            }
+        }
+
+        // 5. Spotify Search or Play
+        if (lower.contains("spotify")) {
+            var target = lower
+            val spotifyCleanups = listOf(
+                "open spotify and play ", "open spotify and search ",
+                "open spotify ", "play ", "search for ", "search ",
+                "on spotify", "in spotify", "spotify",
+            )
+            for (clean in spotifyCleanups) {
+                target = target.replace(clean, "")
+            }
+            target = target.trim().ifBlank { "music" }
+
+            return try {
+                val spotifyUri = Uri.parse("https://open.spotify.com/search/${Uri.encode(target)}")
+                val intent = Intent(Intent.ACTION_VIEW, spotifyUri).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+                Pair(true, "Opening Spotify & searching for '$target' 🎵")
+            } catch (_: Exception) {
+                Pair(false, "Could not open Spotify.")
+            }
+        }
+
+        // Fallback to basic openApp
+        return openApp(context, raw)
+    }
+
     fun openApp(context: Context, rawTarget: String): Pair<Boolean, String> {
+        if (isComplexActionIntent(rawTarget) || isWebSearchIntent(rawTarget)) {
+            return executeComplexAction(context, rawTarget)
+        }
         val target = extractAppName(rawTarget).lowercase().trim()
         val pm = context.packageManager
 
@@ -321,6 +546,28 @@ class CampusAppFunctionMcpServer(
                 "required" to listOf("target"),
             ),
         ),
+        McpTool(
+            name = "webSearch",
+            description = "Perform a Google web search on device for a specific query.",
+            inputSchema = mapOf(
+                "type" to "object",
+                "properties" to mapOf(
+                    "query" to mapOf("type" to "string", "description" to "Web search query"),
+                ),
+                "required" to listOf("query"),
+            ),
+        ),
+        McpTool(
+            name = "performAppSearchAction",
+            description = "Perform complex deep app actions like opening YouTube to search/play songs or Instagram to search/follow accounts.",
+            inputSchema = mapOf(
+                "type" to "object",
+                "properties" to mapOf(
+                    "query" to mapOf("type" to "string", "description" to "Deep action query"),
+                ),
+                "required" to listOf("query"),
+            ),
+        ),
     )
 
     override fun listTools(): List<McpTool> = tools
@@ -364,6 +611,26 @@ class CampusAppFunctionMcpServer(
                         McpToolCallResult(listOf(McpContent(text = message)), isError = !success)
                     } else {
                         McpToolCallResult(listOf(McpContent(text = "Open app request validated for: $target")))
+                    }
+                }
+
+                "webSearch" -> {
+                    val query = arguments["query"] as? String ?: ""
+                    if (context != null && query.isNotBlank()) {
+                        val (_, message) = DeviceActionHelper.executeWebSearch(context, query)
+                        McpToolCallResult(listOf(McpContent(text = message)))
+                    } else {
+                        McpToolCallResult(listOf(McpContent(text = "Web search query validated for: $query")))
+                    }
+                }
+
+                "performAppSearchAction" -> {
+                    val query = arguments["query"] as? String ?: ""
+                    if (context != null && query.isNotBlank()) {
+                        val (_, message) = DeviceActionHelper.executeComplexAction(context, query)
+                        McpToolCallResult(listOf(McpContent(text = message)))
+                    } else {
+                        McpToolCallResult(listOf(McpContent(text = "Deep app search action validated for: $query")))
                     }
                 }
 

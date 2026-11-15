@@ -129,7 +129,7 @@ fun CampusGeminiChatScreen() {
         mutableStateListOf(
             ChatMessage(
                 sender = MessageSender.ASSISTANT,
-                text = "Hello! I am your Gemini AI Assistant. 🌟\n\nI can answer questions on any topic, explain concepts, write code, or control your phone (e.g. \"Open YouTube\", \"Open Instagram\", \"Set alarm for 7 AM\"). How can I help you today?",
+                text = "Hello! I am your Gemini AI Assistant. 🌟\n\nI can answer questions on any topic, perform Google web searches, and execute complex app actions (e.g. \"Open YouTube and play old hindi song\", \"Open Instagram and search witness.31 and follow that account\", \"Search python tutorial on Google\", \"Set alarm for 7 AM\"). How can I help you today?",
             ),
         )
     }
@@ -217,15 +217,13 @@ fun CampusGeminiChatScreen() {
 
     val suggestions = remember {
         listOf(
-            Pair("🎬", "Open YouTube"),
-            Pair("📸", "Open Instagram"),
-            Pair("💬", "Open WhatsApp"),
-            Pair("📷", "Open Camera"),
+            Pair("🎬", "Open YouTube and play old hindi song"),
+            Pair("📸", "Open Instagram and search witness.31 and follow that account"),
+            Pair("🌐", "Search python tutorial on Google"),
+            Pair("🗺️", "Search coffee shop on Maps"),
             Pair("⏰", "Set alarm for 7 AM"),
             Pair("📰", "Latest News Headlines"),
-            Pair("🐍", "What is Python?"),
             Pair("📅", "Monday Timetable"),
-            Pair("💡", "What is Artificial Intelligence?"),
         )
     }
 

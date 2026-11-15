@@ -230,14 +230,36 @@ class CampusAgentRuntime(context: Context) {
     ): AgentResult {
         val startedAt = System.nanoTime()
 
-        // 1. Direct device action checks (Open YouTube, Instagram, WhatsApp, Camera, Alarm, etc.)
-        // These ALWAYS execute locally, even when internet is disconnected!
+        // 1. Direct device & complex action checks (Open YouTube, Instagram, WhatsApp, Web Search, Alarms, etc.)
+        // These ALWAYS execute locally on device!
         if (DeviceActionHelper.isAlarmIntent(query)) {
             val alarmMsg = DeviceActionHelper.parseAndSetAlarm(appContext, query)
             return AgentResult.Success(
                 answer = alarmMsg,
                 route = Route.LOCAL_TOOL,
                 reason = "Alarm set locally via Android system.",
+                elapsedMs = elapsedMs(startedAt),
+                privateDataSentToCloud = false,
+            )
+        }
+
+        if (DeviceActionHelper.isWebSearchIntent(query)) {
+            val (_, actionMsg) = DeviceActionHelper.executeWebSearch(appContext, query)
+            return AgentResult.Success(
+                answer = actionMsg,
+                route = Route.LOCAL_TOOL,
+                reason = "Google Web search executed on device.",
+                elapsedMs = elapsedMs(startedAt),
+                privateDataSentToCloud = false,
+            )
+        }
+
+        if (DeviceActionHelper.isComplexActionIntent(query)) {
+            val (_, actionMsg) = DeviceActionHelper.executeComplexAction(appContext, query)
+            return AgentResult.Success(
+                answer = actionMsg,
+                route = Route.LOCAL_TOOL,
+                reason = "Executed deep app search action on device.",
                 elapsedMs = elapsedMs(startedAt),
                 privateDataSentToCloud = false,
             )

@@ -123,7 +123,11 @@ object RoutingPolicy {
             return RoutingDecision(Route.LOCAL_TOOL, tool, "Handled by a local student tool via on-device MCP.")
         }
 
-        if (DeviceActionHelper.isAppLaunchIntent(query) || DeviceActionHelper.isAlarmIntent(query)) {
+        if (DeviceActionHelper.isAppLaunchIntent(query) ||
+            DeviceActionHelper.isAlarmIntent(query) ||
+            DeviceActionHelper.isWebSearchIntent(query) ||
+            DeviceActionHelper.isComplexActionIntent(query)
+        ) {
             return RoutingDecision(Route.LOCAL_TOOL, reason = "Handled by on-device system launcher.")
         }
 

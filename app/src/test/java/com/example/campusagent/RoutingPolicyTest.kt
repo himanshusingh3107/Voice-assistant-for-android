@@ -124,5 +124,35 @@ class RoutingPolicyTest {
         org.junit.Assert.assertTrue(toolNames.contains("getCampusServices"))
         org.junit.Assert.assertTrue(toolNames.contains("setDeviceAlarm"))
         org.junit.Assert.assertTrue(toolNames.contains("openDeviceApp"))
+        org.junit.Assert.assertTrue(toolNames.contains("webSearch"))
+        org.junit.Assert.assertTrue(toolNames.contains("performAppSearchAction"))
+    }
+
+    @Test
+    fun complexAppActionsAndWebSearchAreDetectedAndRoutedLocally() {
+        org.junit.Assert.assertTrue(DeviceActionHelper.isComplexActionIntent("open youtube and search song"))
+        org.junit.Assert.assertTrue(DeviceActionHelper.isComplexActionIntent("open youtube and play old hindi song"))
+        org.junit.Assert.assertTrue(DeviceActionHelper.isComplexActionIntent("open instagram and search witness.31 and follow that account"))
+        org.junit.Assert.assertTrue(DeviceActionHelper.isWebSearchIntent("search python tutorial on google"))
+        org.junit.Assert.assertTrue(DeviceActionHelper.isWebSearchIntent("google search quantum computing"))
+        org.junit.Assert.assertTrue(DeviceActionHelper.isComplexActionIntent("search coffee shop on maps"))
+
+        val youtubePlay = RoutingPolicy.choose(
+            "open youtube and play old hindi song",
+            RoutingSignals(),
+        )
+        assertEquals(Route.LOCAL_TOOL, youtubePlay.route)
+
+        val instaFollow = RoutingPolicy.choose(
+            "open instagram and search witness.31 and follow that account",
+            RoutingSignals(),
+        )
+        assertEquals(Route.LOCAL_TOOL, instaFollow.route)
+
+        val webSearch = RoutingPolicy.choose(
+            "search python tutorial on google",
+            RoutingSignals(),
+        )
+        assertEquals(Route.LOCAL_TOOL, webSearch.route)
     }
 }
