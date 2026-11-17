@@ -232,6 +232,21 @@ object DeviceActionHelper {
             }
             target = target.trim().ifBlank { "music" }
 
+            if (isPlay) {
+                // Auto-Play Intent for YouTube
+                try {
+                    val playIntent = Intent(MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH).apply {
+                        putExtra(MediaStore.EXTRA_MEDIA_FOCUS, "vnd.android.cursor.item/*")
+                        putExtra(android.app.SearchManager.QUERY, target)
+                        putExtra(MediaStore.EXTRA_MEDIA_TITLE, target)
+                        setPackage("com.google.android.youtube")
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(playIntent)
+                    return Pair(true, "Auto-Playing '$target' on YouTube 🎬▶️")
+                } catch (_: Exception) {}
+            }
+
             return try {
                 val searchUrl = "https://www.youtube.com/results?search_query=${Uri.encode(target)}"
                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(searchUrl)).apply {
@@ -271,6 +286,12 @@ object DeviceActionHelper {
 
             if (username.isBlank()) username = "instagram"
 
+            if (isFollow) {
+                AutoActionManager.triggerAutoFollow(username)
+            }
+
+            val hasAccessibility = AutoActionManager.isAccessibilityEnabled(context)
+
             return try {
                 val appUri = Uri.parse("instagram://user?username=$username")
                 val nativeIntent = Intent(Intent.ACTION_VIEW, appUri).apply {
@@ -287,10 +308,10 @@ object DeviceActionHelper {
                     }
                     context.startActivity(webIntent)
                 }
-                val text = if (isFollow) {
-                    "Opening Instagram profile '@$username' 📸\nTap 'Follow' on their profile to follow them!"
-                } else {
-                    "Opening Instagram profile '@$username' 📸"
+                val text = when {
+                    isFollow && hasAccessibility -> "Opening Instagram profile '@$username' 📸\nAuto-Follow activated!"
+                    isFollow -> "Opening Instagram profile '@$username' 📸\nTap 'Follow' on profile (or turn ON Auto-Action Service in Settings)."
+                    else -> "Opening Instagram profile '@$username' 📸"
                 }
                 Pair(true, text)
             } catch (_: Exception) {
@@ -334,6 +355,7 @@ object DeviceActionHelper {
 
         // 5. Spotify Search or Play
         if (lower.contains("spotify")) {
+            val isPlay = lower.contains("play") || lower.contains("listen") || lower.contains("chalao")
             var target = lower
             val spotifyCleanups = listOf(
                 "open spotify and play ", "open spotify and search ",
@@ -344,6 +366,19 @@ object DeviceActionHelper {
                 target = target.replace(clean, "")
             }
             target = target.trim().ifBlank { "music" }
+
+            if (isPlay) {
+                try {
+                    val playIntent = Intent(MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH).apply {
+                        putExtra(MediaStore.EXTRA_MEDIA_FOCUS, MediaStore.Audio.Media.ENTRY_CONTENT_TYPE)
+                        putExtra(android.app.SearchManager.QUERY, target)
+                        setPackage("com.spotify.music")
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(playIntent)
+                    return Pair(true, "Auto-Playing '$target' on Spotify 🎵▶️")
+                } catch (_: Exception) {}
+            }
 
             return try {
                 val spotifyUri = Uri.parse("https://open.spotify.com/search/${Uri.encode(target)}")

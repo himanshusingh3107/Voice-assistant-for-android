@@ -519,6 +519,22 @@ fun CampusGeminiChatScreen() {
                             },
                         )
                     }
+
+                    Button(
+                        onClick = {
+                            try {
+                                val intent = Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                context.startActivity(intent)
+                            } catch (_: Exception) {
+                                Toast.makeText(context, "Could not open Accessibility Settings", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Enable Auto-Follow / Auto-Action ⚙️")
+                    }
                 }
             },
             confirmButton = {

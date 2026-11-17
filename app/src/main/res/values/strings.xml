@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Campus Assistant</string>
+    <string name="accessibility_service_description">Enables Campus Assistant to perform automated hands-free UI actions like auto-following Instagram accounts and auto-playing songs.</string>
+</resources>
