@@ -168,7 +168,8 @@ class CampusWakeWordService : Service() {
         val lower = spokenText.lowercase()
         if (containsWakeWord(lower)) {
             isProcessing = true
-            updateNotification("Wake-word detected! Processing request...")
+            SoundManager.playWakeChime()
+            updateNotification("Siri Overlay Active 🎙️")
 
             var command = lower
             val triggers = listOf("campus gemini", "hey gemini", "ok gemini", "campus", "gemini")
@@ -179,24 +180,9 @@ class CampusWakeWordService : Service() {
                 }
             }
 
-            if (command.isBlank()) {
-                tts?.speak("Yes! How can I help you?", TextToSpeech.QUEUE_FLUSH, null, "WakeAck")
-                scheduleRestart(2000)
-                isProcessing = false
-            } else {
-                serviceScope.launch {
-                    val result = runtime.ask(command)
-                    val answer = when (result) {
-                        is AgentResult.Success -> result.answer
-                        is AgentResult.Failure -> result.message
-                    }
-                    val cleanSpeech = answer.replace(Regex("[*#_`~]"), "")
-                    tts?.speak(cleanSpeech, TextToSpeech.QUEUE_FLUSH, null, "AssistantResponse")
-                    updateNotification("Listening for 'Campus Gemini' 🎙️")
-                    isProcessing = false
-                    scheduleRestart(3000)
-                }
-            }
+            SiriOverlayActivity.start(this, command)
+            scheduleRestart(4000)
+            isProcessing = false
         } else {
             scheduleRestart(800)
         }
