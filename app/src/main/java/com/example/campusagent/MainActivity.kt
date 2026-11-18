@@ -124,6 +124,17 @@ fun CampusGeminiChatScreen() {
     var voiceOutputEnabled by remember {
         mutableStateOf(prefs.getBoolean("voice_output", true))
     }
+    var wakeWordEnabled by remember {
+        mutableStateOf(prefs.getBoolean("wake_word_enabled", true))
+    }
+
+    LaunchedEffect(wakeWordEnabled) {
+        if (wakeWordEnabled) {
+            CampusWakeWordService.start(context)
+        } else {
+            CampusWakeWordService.stop(context)
+        }
+    }
 
     val messages = remember {
         mutableStateListOf(
@@ -516,6 +527,31 @@ fun CampusGeminiChatScreen() {
                             onCheckedChange = {
                                 voiceOutputEnabled = it
                                 prefs.edit().putBoolean("voice_output", it).apply()
+                            },
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Background Wake-Word 🎙️", style = MaterialTheme.typography.bodyMedium)
+                            Text("Listens for 'Campus Gemini' in background", style = MaterialTheme.typography.bodySmall, color = Color(0xFF94A3B8))
+                        }
+                        Switch(
+                            checked = wakeWordEnabled,
+                            onCheckedChange = {
+                                wakeWordEnabled = it
+                                prefs.edit().putBoolean("wake_word_enabled", it).apply()
+                                if (it) {
+                                    CampusWakeWordService.start(context)
+                                    Toast.makeText(context, "Background Wake-Word Enabled 🎙️", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    CampusWakeWordService.stop(context)
+                                    Toast.makeText(context, "Background Wake-Word Disabled 🔇", Toast.LENGTH_SHORT).show()
+                                }
                             },
                         )
                     }
