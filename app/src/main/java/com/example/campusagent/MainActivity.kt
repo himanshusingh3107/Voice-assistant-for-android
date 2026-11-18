@@ -571,6 +571,27 @@ fun CampusGeminiChatScreen() {
                     ) {
                         Text("Enable Auto-Follow / Auto-Action ⚙️")
                     }
+
+                    Button(
+                        onClick = {
+                            try {
+                                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                                    val intent = Intent(
+                                        android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                        android.net.Uri.parse("package:${context.packageName}"),
+                                    ).apply {
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    }
+                                    context.startActivity(intent)
+                                }
+                            } catch (_: Exception) {
+                                Toast.makeText(context, "Could not open Overlay Settings", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Grant 'Display Over Other Apps' 🪟")
+                    }
                 }
             },
             confirmButton = {

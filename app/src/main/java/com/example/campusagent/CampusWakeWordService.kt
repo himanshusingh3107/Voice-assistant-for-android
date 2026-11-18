@@ -161,7 +161,9 @@ class CampusWakeWordService : Service() {
             lower.contains("hey gemini") ||
             lower.contains("ok gemini") ||
             lower.contains("campus") ||
-            lower.contains("gemini")
+            lower.contains("gemini") ||
+            lower.contains("jamini") ||
+            lower.contains("jemini")
     }
 
     private fun handleSpokenText(spokenText: String) {
@@ -172,7 +174,7 @@ class CampusWakeWordService : Service() {
             updateNotification("Siri Overlay Active 🎙️")
 
             var command = lower
-            val triggers = listOf("campus gemini", "hey gemini", "ok gemini", "campus", "gemini")
+            val triggers = listOf("campus gemini", "hey gemini", "ok gemini", "campus", "gemini", "jamini", "jemini")
             for (trigger in triggers) {
                 if (command.contains(trigger)) {
                     command = command.substringAfter(trigger).trim()
@@ -181,16 +183,21 @@ class CampusWakeWordService : Service() {
             }
 
             SiriOverlayActivity.start(this, command)
-            scheduleRestart(4000)
+            scheduleRestart(3500)
             isProcessing = false
         } else {
-            scheduleRestart(800)
+            scheduleRestart(400)
         }
     }
 
-    private fun scheduleRestart(delayMs: Long = 800) {
+    private fun scheduleRestart(delayMs: Long = 400) {
         handler.removeCallbacksAndMessages(null)
         handler.postDelayed({
+            try {
+                speechRecognizer?.destroy()
+                speechRecognizer = null
+            } catch (_: Exception) {}
+            isListening = false
             startListeningLoop()
         }, delayMs)
     }
